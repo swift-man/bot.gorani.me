@@ -13,7 +13,7 @@ import Stats from '~/components/widgets/Stats.astro';
 import CallToAction from '~/components/widgets/CallToAction.astro';
 
 const metadata = {
-  title: 'AstroWind — Free template for creating websites with Astro + Tailwind CSS',
+  title: '토깽이 카카오톡 봇 — 랭킹·알림·데이터 조회를 한 번에 + 귀엽게, 똑똑하게 도와줄게요',
   ignoreTitleTemplate: true,
 };
 ---
@@ -24,29 +24,27 @@ const metadata = {
   <Hero
     actions={[
       {
-        variant: 'primary',
-        text: 'Get template',
-        href: 'https://github.com/arthelokyo/astrowind',
+        variant: 'kakao',
+        text: '문의하기',
+        href: 'https://open.kakao.com/o/s8Oc6Gxh',
         target: '_blank',
-        icon: 'tabler:download',
+        icon: 'tabler:brand-kako-talk',
       },
       { text: 'Learn more', href: '#features' },
     ]}
-    image={{ src: '~/assets/images/hero-image.png', alt: 'AstroWind Hero Image' }}
+    image={{ src: '~/assets/images/t_main.png', alt: '토깽이 메인' }}
   >
     <Fragment slot="title">
-      Free template for <span class="hidden xl:inline">creating websites with</span>
-      <span class="text-accent dark:text-white"> Astro 5.0</span> + Tailwind CSS
+      카카오톡 <span class="hidden xl:inline">봇</span>
+      <span class="text-accent dark:text-white"> 토깽이</span> + 닉변자동감지·알림을 한 번에
     </Fragment>
 
     <Fragment slot="subtitle">
       <span class="hidden sm:inline">
-        <span class="font-semibold">AstroWind</span> is a free, customizable and production-ready template for Astro 5.0
-        + Tailwind CSS.</span
+        <span class="font-semibold">토깽이</span> 는 오픈채팅방에서 사용자의 닉네임 변경을 실시간으로 감지해 알림을 제공하는 다기능 봇입니다.</span
       >
       <span class="block mb-1 sm:hidden font-bold text-blue-600">AstroWind: Production-ready.</span>
-      Suitable for Startups, Small Business, SaaS websites, Professional Portfolios, Marketing websites, Landing Pages &
-      Blogs.
+      입·퇴장 알림, 메시지 삭제 감지, 특정 시간 이미지 및 장문 알림, 다양한 게임, AI 대화 기능까지 지원하여 오픈채팅방 운영과 커뮤니티 관리를 더욱 스마트하게 만들어줍니다.
     </Fragment>
   </Hero>
 
@@ -380,8 +378,8 @@ const metadata = {
     actions={[
       {
         variant: 'primary',
-        text: 'Get template',
-        href: 'https://github.com/arthelokyo/astrowind',
+        text: '문의하기',
+        href: 'https://open.kakao.com/o/s8Oc6Gxh',
         target: '_blank',
         icon: 'tabler:download',
       },

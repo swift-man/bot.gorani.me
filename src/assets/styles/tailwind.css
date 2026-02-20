@@ -36,6 +36,10 @@
   .btn-tertiary {
     @apply btn border-none shadow-none text-muted hover:text-gray-900 dark:text-gray-400 dark:hover:text-white;
   }
+
+  .btn-kakao {
+    @apply btn font-semibold bg-kakao text-black border-kakao hover:bg-kakao-hover hover:border-kakao-hover hover:text-black dark:text-black dark:bg-kakao dark:border-kakao dark:hover:border-kakao-hover dark:hover:bg-kakao-hover;
+  }
 }
 
 #header.scroll > div:first-child {
