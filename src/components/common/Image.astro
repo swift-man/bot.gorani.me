@@ -1,11 +1,7 @@
 ---
 import type { HTMLAttributes } from 'astro/types';
 import { findImage } from '~/utils/images';
-import {
-  getImagesOptimized,
-  astroAssetsOptimizer,
-  type ImageProps,
-} from '~/utils/images-optimization';
+import { getImagesOptimized, astroAssetsOptimizer, type ImageProps } from '~/utils/images-optimization';
 
 type Props = ImageProps;
 type ImageType = {
@@ -39,11 +35,8 @@ const _image = await findImage(props.src);
 
 let image: ImageType | undefined = undefined;
 
-if (
-  typeof _image === 'string' &&
-  (_image.startsWith('http://') || _image.startsWith('https://'))
-) {
-  const { src: _src, ...attributes } = props;
+if (typeof _image === 'string' && (_image.startsWith('http://') || _image.startsWith('https://'))) {
+  const attributes = Object.fromEntries(Object.entries(props).filter(([key]) => key !== 'src'));
   image = { src: _image, attributes };
 } else if (_image) {
   image = await getImagesOptimized(_image, props, astroAssetsOptimizer);
