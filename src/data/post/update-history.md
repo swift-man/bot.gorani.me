@@ -1,0 +1,35 @@
+---
+publishDate: 2026-03-13T00:00:00Z
+title: 새로운 소식
+excerpt: 신규 기능 업데이트 안내
+image: https://images.unsplash.com/photo-1637144113536-9c6e917be447?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1674&q=80
+tags:
+  - update
+---
+
+## v0.9.1 · 2026-03-13
+### 글 횟수 및 출석체크를 이용한 누적 포인트 기능 추가(특정 방 전용 기능)
+![image](/images/points.png)
+- 명령어 /포인트 
+  - 오픈방의 회원이 방에 누적 포인트를 조회 합니다.
+- 명령어 /별명 별명 지정
+  - 방 인원의 별명을 지정합니다.
+  - 대댓글 전용
+  - 방장, 부 방장 전용 명렁어
+- /정보 닉 
+  - 누적 포인트 및 별명, 채팅 횟수 등 회원의 상세 정보를 조회합니다.
+  - 방장, 부 방장 전용 명령어 
+
+---
+### 실시간 검색어 기능 추가(특정 방 전용 기능)
+![image](/images/realtime.png)
+- 명령어 /실검
+---
+- 그 외 몇가지 "왕과 사는 남자" 밈 이미지 자동 답변 기능 추가
+---
+## v0.9.0 · 2026-03-12
+### 출석체크 > 특정 방에 달력이 보이는 달력 기능 추가(특정 방)
+![image](/images/calendar.png)
+- 명령어 /ㅊㅊ, /출석
+
+  
