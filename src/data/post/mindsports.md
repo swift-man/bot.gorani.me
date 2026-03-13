@@ -1,7 +1,7 @@
 ---
 publishDate: 2026-03-13T00:00:00Z
-author: 짱쿠나
-title: 짱⭐️쿠나 방장님의 추천 글
+author: 갓쿠나
+title: 갓⭐️쿠나 방장님의 추천 글
 excerpt: 게임 아이템 거래방에서 사기꾼을 방지하는 토깽이는 정말 유용한 도구라고 생각합니다.
 image: ~/assets/images/IMG_0307.jpeg
 category: Tutorials
