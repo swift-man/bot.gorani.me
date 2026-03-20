@@ -2,7 +2,7 @@
 publishDate: 2026-03-19T00:00:00Z
 author: 빨리해서생긴일
 title: 빨리해서생긴일 방장님의 추천 글
-excerpt: 게임 아이템 거래방에서 사기꾼을 방지하는 토깽이는 정말 유용한 도구라고 생각합니다.
+excerpt: 토깽이는 섯다, 포커 등 다양한 족보 게임을 한곳에서 즐길 수 있다는 장점이 있습니다.
 image: ~/assets/images/hangame.jpeg
 category: Tutorials
 tags:
