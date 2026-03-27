@@ -9,18 +9,18 @@ site:
 # Default SEO metadata
 metadata:
   title:
-    default: bot.gorani.me
-    template: '%s | bot.gorani.me'
-  description: 'bot.gorani.me 블로그'
+    default: 토깽이 카카오톡 봇
+    template: '%s | 토깽이 카카오톡 봇'
+  description: '토깽이는 카카오톡 오픈채팅에서 닉네임 변경 감지, 입·퇴장 알림, 삭제 감지, 자동 공지, 게임, AI 대화까지 제공하는 관리 봇입니다.'
   robots:
     index: true
     follow: true
   openGraph:
-    site_name: bot.gorani.me
+    site_name: 토깽이 카카오톡 봇
     images:
-      - url: '~/assets/images/default.png'
-        width: 1200
-        height: 628
+      - url: '~/assets/images/t_main.png'
+        width: 1344
+        height: 800
     type: website
   twitter:
     handle: ''

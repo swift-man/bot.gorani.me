@@ -14,7 +14,18 @@ import CallToAction from '~/components/widgets/CallToAction.astro';
 
 const metadata = {
   title: '토깽이 카카오톡 봇 — 랭킹·알림·데이터 조회를 한 번에 + 귀엽게, 똑똑하게 도와줄게요',
+  description:
+    '토깽이는 카카오톡 오픈채팅방에서 닉네임 변경 감지, 입·퇴장 알림, 삭제 감지, 자동 공지, 게임, AI 대화까지 한 번에 제공하는 다기능 관리 봇입니다.',
   ignoreTitleTemplate: true,
+  openGraph: {
+    images: [
+      {
+        url: '~/assets/images/t_main.png',
+        width: 1344,
+        height: 800,
+      },
+    ],
+  },
 };
 ---
 
