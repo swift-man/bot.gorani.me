@@ -40,6 +40,46 @@
   .btn-kakao {
     @apply btn font-semibold bg-kakao text-black border-kakao hover:bg-kakao-hover hover:border-kakao-hover hover:text-black dark:text-black dark:bg-kakao dark:border-kakao dark:hover:border-kakao-hover dark:hover:bg-kakao-hover;
   }
+
+  .markdown-chat-commands :where(pre.astro-code) {
+    @apply relative overflow-hidden rounded-xl border border-slate-700/60;
+    padding: 0;
+  }
+
+  .markdown-chat-commands :where(pre.astro-code code) {
+    @apply block;
+    padding: 2.55rem 0.375rem 0.125rem;
+  }
+
+  .markdown-chat-commands :where(pre.astro-code)::before {
+    content: '채팅 명령어';
+    @apply absolute left-0 right-0 top-0 flex h-10 items-center border-b border-slate-700/60 px-4 text-sm font-semibold text-black;
+    background-color: #fbe300;
+    background-image: url('/images/kakao-chat.svg');
+    background-position: 1rem center;
+    background-repeat: no-repeat;
+    background-size: 1rem 1rem;
+    padding-left: 2.6rem;
+  }
+
+  .markdown-chat-commands :where(ul, ol) {
+    margin-top: 0.25rem !important;
+    margin-bottom: 0.25rem !important;
+  }
+
+  .markdown-chat-commands :where(li) {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+  }
+
+  .markdown-chat-commands :where(li + li) {
+    margin-top: 0.1rem !important;
+  }
+
+  .markdown-chat-commands :where(li > p) {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+  }
 }
 
 #header.scroll > div:first-child {
