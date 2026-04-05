@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset
+  xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+  xmlns:news="http://www.google.com/schemas/sitemap-news/0.9"
+  xmlns:xhtml="http://www.w3.org/1999/xhtml"
+  xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"
+  xmlns:video="http://www.google.com/schemas/sitemap-video/1.1"
+>
+  <url><loc>https://bot.gorani.me</loc></url>
+  <url><loc>https://bot.gorani.me/about</loc></url>
+  <url><loc>https://bot.gorani.me/blog</loc></url>
+  <url><loc>https://bot.gorani.me/category/tutorials</loc></url>
+  <url><loc>https://bot.gorani.me/contact</loc></url>
+  <url><loc>https://bot.gorani.me/homes/mobile-app</loc></url>
+  <url><loc>https://bot.gorani.me/homes/personal</loc></url>
+  <url><loc>https://bot.gorani.me/homes/saas</loc></url>
+  <url><loc>https://bot.gorani.me/homes/startup</loc></url>
+  <url><loc>https://bot.gorani.me/landing/click-through</loc></url>
+  <url><loc>https://bot.gorani.me/landing/lead-generation</loc></url>
+  <url><loc>https://bot.gorani.me/landing/pre-launch</loc></url>
+  <url><loc>https://bot.gorani.me/landing/product</loc></url>
+  <url><loc>https://bot.gorani.me/landing/sales</loc></url>
+  <url><loc>https://bot.gorani.me/landing/subscription</loc></url>
+  <url><loc>https://bot.gorani.me/mindsports</loc></url>
+  <url><loc>https://bot.gorani.me/pricing</loc></url>
+  <url><loc>https://bot.gorani.me/privacy</loc></url>
+  <url><loc>https://bot.gorani.me/services</loc></url>
+  <url><loc>https://bot.gorani.me/soup</loc></url>
+  <url><loc>https://bot.gorani.me/tag/mindsports</loc></url>
+  <url><loc>https://bot.gorani.me/tag/soup</loc></url>
+  <url><loc>https://bot.gorani.me/tag/update</loc></url>
+  <url><loc>https://bot.gorani.me/terms</loc></url>
+  <url><loc>https://bot.gorani.me/whats-new</loc></url>
+</urlset>
