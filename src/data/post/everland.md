@@ -2,7 +2,7 @@
 publishDate: 2026-07-25T00:00:00Z
 author: 아자
 title: 아자 방장님의 추천 글
-excerpt: 토깽이는 섯다, 포커 등 다양한 족보 게임을 한곳에서 즐길 수 있다는 장점이 있습니다.
+excerpt: 시간도 절약되고, 제가 안 보고 있어도 변경되는 거 삭제하는 거 보고 보안관 분들이 사기예방에 참여해 주셔서 사기가 거의 없어졌어요! 
 image: ~/assets/images/everland.jpg
 category: Tutorials
 tags:
