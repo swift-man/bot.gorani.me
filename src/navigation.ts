@@ -8,6 +8,7 @@ export const headerData = {
 export const footerData = {
   links: [],
   actions: [],
+  footNote: 'Copyright © 2025 Gorani. All rights reserved.',
 };
 // export const headerData = {
 //   links: [
