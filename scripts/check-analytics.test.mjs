@@ -253,6 +253,55 @@ describe('verifyAnalyticsBuild', () => {
     );
   });
 
+  it('rejects a local object that shadows the global window', () => {
+    const shadowedWindow = `
+      <script>
+        (function initialize(window){
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){window.dataLayer.push(arguments);}
+          gtag('config', '${measurementId}');
+        })({});
+      </script>
+    `;
+
+    assert.throws(
+      () => verifyAnalyticsBuild({ html: html(loader, shadowedWindow), measurementId }),
+      /Analytics initialization is missing/
+    );
+  });
+
+  it('rejects a forwarding function whose arguments object is shadowed', () => {
+    const shadowedArguments = `
+      <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(arguments){window.dataLayer.push(arguments);}
+        gtag('config', '${measurementId}');
+      </script>
+    `;
+
+    assert.throws(
+      () => verifyAnalyticsBuild({ html: html(loader, shadowedArguments), measurementId }),
+      /Analytics initialization is missing/
+    );
+  });
+
+  it('rejects initialization inside an uncalled function', () => {
+    const uncalledInitialization = `
+      <script>
+        window.dataLayer = window.dataLayer || [];
+        function neverCalled(){
+          function gtag(){window.dataLayer.push(arguments);}
+          gtag('config', '${measurementId}');
+        }
+      </script>
+    `;
+
+    assert.throws(
+      () => verifyAnalyticsBuild({ html: html(loader, uncalledInitialization), measurementId }),
+      /Analytics initialization is missing/
+    );
+  });
+
   it('rejects a forwarding function with an empty data layer push', () => {
     const emptyDataLayerPush = `
       <script>

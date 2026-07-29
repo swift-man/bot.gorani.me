@@ -14,35 +14,57 @@ const getStringValue = (node) => {
   if (node && (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node))) return node.text;
 };
 
-const isGlobalObject = (node) => ts.isIdentifier(node) && (node.text === 'window' || node.text === 'globalThis');
+const isExplicitBinding = (declaration) =>
+  ts.isVariableDeclaration(declaration) ||
+  ts.isParameter(declaration) ||
+  ts.isBindingElement(declaration) ||
+  ts.isFunctionDeclaration(declaration) ||
+  ts.isClassDeclaration(declaration) ||
+  ts.isImportClause(declaration) ||
+  ts.isImportSpecifier(declaration) ||
+  ts.isNamespaceImport(declaration) ||
+  ts.isImportEqualsDeclaration(declaration);
 
-const isExplicitGlobalDataLayerReference = (node) =>
-  (ts.isPropertyAccessExpression(node) && isGlobalObject(node.expression) && node.name.text === 'dataLayer') ||
+const hasExplicitBinding = (node, checker) =>
+  checker.getSymbolAtLocation(node)?.declarations?.some(isExplicitBinding) ?? false;
+
+const isUnshadowedIdentifier = (node, name, checker) =>
+  ts.isIdentifier(node) && node.text === name && !hasExplicitBinding(node, checker);
+
+const isGlobalObject = (node, checker) =>
+  isUnshadowedIdentifier(node, 'window', checker) || isUnshadowedIdentifier(node, 'globalThis', checker);
+
+const isExplicitGlobalDataLayerReference = (node, checker) =>
+  (ts.isPropertyAccessExpression(node) && isGlobalObject(node.expression, checker) && node.name.text === 'dataLayer') ||
   (ts.isElementAccessExpression(node) &&
-    isGlobalObject(node.expression) &&
+    isGlobalObject(node.expression, checker) &&
     getStringValue(node.argumentExpression) === 'dataLayer');
 
 const isDataLayerReference = (node, checker) =>
-  isExplicitGlobalDataLayerReference(node) ||
-  (ts.isIdentifier(node) && node.text === 'dataLayer' && !checker.getSymbolAtLocation(node));
+  isExplicitGlobalDataLayerReference(node, checker) || isUnshadowedIdentifier(node, 'dataLayer', checker);
 
-const isValidDataLayerValue = (node) =>
+const isValidDataLayerValue = (node, checker) =>
   ts.isArrayLiteralExpression(node) ||
   (ts.isBinaryExpression(node) &&
     [ts.SyntaxKind.BarBarToken, ts.SyntaxKind.QuestionQuestionToken].includes(node.operatorToken.kind) &&
-    isExplicitGlobalDataLayerReference(node.left) &&
+    isExplicitGlobalDataLayerReference(node.left, checker) &&
     ts.isArrayLiteralExpression(node.right));
 
-const isDataLayerInitialization = (node) =>
+const isDataLayerInitialization = (node, checker) =>
   ts.isBinaryExpression(node) &&
   node.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
-  isExplicitGlobalDataLayerReference(node.left) &&
-  isValidDataLayerValue(node.right);
+  isExplicitGlobalDataLayerReference(node.left, checker) &&
+  isValidDataLayerValue(node.right, checker);
 
 const isNestedFunction = (node) =>
   ts.isFunctionDeclaration(node) || ts.isFunctionExpression(node) || ts.isArrowFunction(node);
 
-const forwardsArgumentsToDataLayer = (body, checker) => {
+const isImplicitArguments = (node, checker) => {
+  if (!ts.isIdentifier(node) || node.text !== 'arguments') return false;
+  return !hasExplicitBinding(node, checker);
+};
+
+const forwardsArgumentsToDataLayer = (functionNode, checker) => {
   let forwardsArguments = false;
 
   const visit = (node) => {
@@ -52,8 +74,7 @@ const forwardsArgumentsToDataLayer = (body, checker) => {
       node.expression.name.text === 'push' &&
       isDataLayerReference(node.expression.expression, checker) &&
       node.arguments.length > 0 &&
-      ts.isIdentifier(node.arguments[0]) &&
-      node.arguments[0].text === 'arguments'
+      isImplicitArguments(node.arguments[0], checker)
     ) {
       forwardsArguments = true;
       return;
@@ -63,7 +84,7 @@ const forwardsArgumentsToDataLayer = (body, checker) => {
     ts.forEachChild(node, visit);
   };
 
-  visit(body);
+  visit(functionNode.body);
   return forwardsArguments;
 };
 
@@ -102,56 +123,138 @@ const hasAnalyticsInitialization = (content, measurementId) => {
   if (hasSyntaxErrors) return false;
 
   let hasDataLayerInitialization = false;
+  let hasConfigCall = false;
   const forwardingFunctions = new Set();
-  const configCallTargets = new Set();
 
-  const visit = (node) => {
-    if (isDataLayerInitialization(node)) {
-      hasDataLayerInitialization = true;
-    }
-
-    if (ts.isFunctionDeclaration(node) && node.name && node.body && forwardsArgumentsToDataLayer(node.body, checker)) {
-      const symbol = checker.getSymbolAtLocation(node.name);
-      if (symbol) forwardingFunctions.add(symbol);
-    }
-
-    if (
-      ts.isVariableDeclaration(node) &&
-      ts.isIdentifier(node.name) &&
-      node.initializer &&
-      ts.isFunctionExpression(node.initializer) &&
-      forwardsArgumentsToDataLayer(node.initializer.body, checker)
-    ) {
-      const symbol = checker.getSymbolAtLocation(node.name);
-      if (symbol) forwardingFunctions.add(symbol);
-    }
-
-    if (
-      ts.isBinaryExpression(node) &&
-      node.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
-      ts.isIdentifier(node.left) &&
-      ts.isFunctionExpression(node.right) &&
-      forwardsArgumentsToDataLayer(node.right.body, checker)
-    ) {
-      const symbol = checker.getSymbolAtLocation(node.left);
-      if (symbol) forwardingFunctions.add(symbol);
-    }
-
-    if (
-      ts.isCallExpression(node) &&
-      ts.isIdentifier(node.expression) &&
-      getStringValue(node.arguments[0]) === 'config' &&
-      getStringValue(node.arguments[1]) === measurementId
-    ) {
-      const symbol = checker.getSymbolAtLocation(node.expression);
-      if (symbol) configCallTargets.add(symbol);
-    }
-
-    ts.forEachChild(node, visit);
+  const registerFunction = (name, functionNode) => {
+    if (!name || !forwardsArgumentsToDataLayer(functionNode, checker)) return;
+    const symbol = checker.getSymbolAtLocation(name);
+    if (symbol) forwardingFunctions.add(symbol);
   };
 
-  visit(sourceFile);
-  return hasDataLayerInitialization && [...forwardingFunctions].some((symbol) => configCallTargets.has(symbol));
+  const unwrapExpression = (node) => {
+    let current = node;
+    while (ts.isParenthesizedExpression(current)) current = current.expression;
+    return current;
+  };
+
+  const visitExecutedStatements = (statements) => {
+    for (const statement of statements) {
+      if (ts.isFunctionDeclaration(statement)) {
+        registerFunction(statement.name, statement);
+      }
+    }
+
+    for (const statement of statements) {
+      visitExecutedStatement(statement);
+    }
+  };
+
+  const visitExecutedFunction = (functionNode) => {
+    if (ts.isBlock(functionNode.body)) {
+      visitExecutedStatements(functionNode.body.statements);
+    } else {
+      visitExecutedExpression(functionNode.body);
+    }
+  };
+
+  const visitExecutedExpression = (node) => {
+    const expression = unwrapExpression(node);
+
+    if (ts.isCallExpression(expression)) {
+      if (
+        hasDataLayerInitialization &&
+        ts.isIdentifier(expression.expression) &&
+        getStringValue(expression.arguments[0]) === 'config' &&
+        getStringValue(expression.arguments[1]) === measurementId
+      ) {
+        const symbol = checker.getSymbolAtLocation(expression.expression);
+        if (symbol && forwardingFunctions.has(symbol)) hasConfigCall = true;
+      }
+
+      const callee = unwrapExpression(expression.expression);
+      if (ts.isFunctionExpression(callee) || ts.isArrowFunction(callee)) {
+        visitExecutedFunction(callee);
+      }
+
+      for (const argument of expression.arguments) {
+        visitExecutedExpression(argument);
+      }
+      return;
+    }
+
+    if (ts.isBinaryExpression(expression)) {
+      if (expression.operatorToken.kind === ts.SyntaxKind.CommaToken) {
+        visitExecutedExpression(expression.left);
+        visitExecutedExpression(expression.right);
+        return;
+      }
+
+      if (expression.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
+        if (isDataLayerInitialization(expression, checker)) {
+          hasDataLayerInitialization = true;
+        }
+
+        if (ts.isIdentifier(expression.left) && ts.isFunctionExpression(expression.right)) {
+          registerFunction(expression.left, expression.right);
+          return;
+        }
+
+        if (!ts.isFunctionExpression(expression.right) && !ts.isArrowFunction(expression.right)) {
+          visitExecutedExpression(expression.right);
+        }
+      }
+      return;
+    }
+
+    if (ts.isPrefixUnaryExpression(expression) || ts.isPostfixUnaryExpression(expression)) {
+      visitExecutedExpression(expression.operand);
+      return;
+    }
+
+    if (ts.isConditionalExpression(expression)) {
+      visitExecutedExpression(expression.condition);
+    }
+  };
+
+  const visitExecutedStatement = (statement) => {
+    if (ts.isFunctionDeclaration(statement)) return;
+
+    if (ts.isExpressionStatement(statement)) {
+      visitExecutedExpression(statement.expression);
+      return;
+    }
+
+    if (ts.isVariableStatement(statement)) {
+      for (const declaration of statement.declarationList.declarations) {
+        if (!declaration.initializer) continue;
+
+        if (ts.isIdentifier(declaration.name) && ts.isFunctionExpression(declaration.initializer)) {
+          registerFunction(declaration.name, declaration.initializer);
+        } else if (!ts.isArrowFunction(declaration.initializer)) {
+          visitExecutedExpression(declaration.initializer);
+        }
+      }
+      return;
+    }
+
+    if (ts.isBlock(statement)) {
+      visitExecutedStatements(statement.statements);
+      return;
+    }
+
+    if (ts.isLabeledStatement(statement)) {
+      visitExecutedStatement(statement.statement);
+      return;
+    }
+
+    if (ts.isReturnStatement(statement) && statement.expression) {
+      visitExecutedExpression(statement.expression);
+    }
+  };
+
+  visitExecutedStatements(sourceFile.statements);
+  return hasConfigCall;
 };
 
 export const validateMeasurementId = (measurementId) => {
