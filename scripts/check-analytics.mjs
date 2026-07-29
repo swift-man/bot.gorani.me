@@ -29,7 +29,7 @@ const scripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)].ma
 }));
 
 const getAttribute = (attributes, name) => {
-  const match = attributes.match(new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'=<>]+))`, 'i'));
+  const match = attributes.match(new RegExp(`(?:^|\\s)${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'=<>]+))`, 'i'));
   return match?.[1] ?? match?.[2] ?? match?.[3];
 };
 
@@ -45,7 +45,9 @@ const partytownScript = scripts.find((script) => {
 });
 
 if (partytownScript) {
-  throw new Error('Analytics is configured for Partytown, but the site does not enable the Partytown integration.');
+  throw new Error(
+    'Analytics must be emitted as executable JavaScript; text/partytown is not supported by this deployment.'
+  );
 }
 
 const loaderScript = scripts.find(
