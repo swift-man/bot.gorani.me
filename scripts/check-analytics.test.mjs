@@ -219,6 +219,40 @@ describe('verifyAnalyticsBuild', () => {
     );
   });
 
+  it('rejects invalid data layer initialization values', () => {
+    for (const invalidValue of ['null', 'undefined', '{}', 'window.dataLayer || null']) {
+      const invalidDataLayer = `
+        <script>
+          window.dataLayer = ${invalidValue};
+          function gtag(){window.dataLayer.push(arguments);}
+          gtag('config', '${measurementId}');
+        </script>
+      `;
+
+      assert.throws(
+        () => verifyAnalyticsBuild({ html: html(loader, invalidDataLayer), measurementId }),
+        /Analytics initialization is missing/
+      );
+    }
+  });
+
+  it('rejects an arrow function that forwards an outer arguments object', () => {
+    const arrowFunction = `
+      <script>
+        window.dataLayer = window.dataLayer || [];
+        (function initialize(){
+          const gtag = () => window.dataLayer.push(arguments);
+          gtag('config', '${measurementId}');
+        })();
+      </script>
+    `;
+
+    assert.throws(
+      () => verifyAnalyticsBuild({ html: html(loader, arrowFunction), measurementId }),
+      /Analytics initialization is missing/
+    );
+  });
+
   it('rejects a forwarding function with an empty data layer push', () => {
     const emptyDataLayerPush = `
       <script>

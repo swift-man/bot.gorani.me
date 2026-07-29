@@ -26,12 +26,21 @@ const isDataLayerReference = (node, checker) =>
   isExplicitGlobalDataLayerReference(node) ||
   (ts.isIdentifier(node) && node.text === 'dataLayer' && !checker.getSymbolAtLocation(node));
 
+const isValidDataLayerValue = (node) =>
+  ts.isArrayLiteralExpression(node) ||
+  (ts.isBinaryExpression(node) &&
+    [ts.SyntaxKind.BarBarToken, ts.SyntaxKind.QuestionQuestionToken].includes(node.operatorToken.kind) &&
+    isExplicitGlobalDataLayerReference(node.left) &&
+    ts.isArrayLiteralExpression(node.right));
+
 const isDataLayerInitialization = (node) =>
   ts.isBinaryExpression(node) &&
   node.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
-  isExplicitGlobalDataLayerReference(node.left);
+  isExplicitGlobalDataLayerReference(node.left) &&
+  isValidDataLayerValue(node.right);
 
-const isFunctionExpression = (node) => ts.isFunctionExpression(node) || ts.isArrowFunction(node);
+const isNestedFunction = (node) =>
+  ts.isFunctionDeclaration(node) || ts.isFunctionExpression(node) || ts.isArrowFunction(node);
 
 const forwardsArgumentsToDataLayer = (body, checker) => {
   let forwardsArguments = false;
@@ -50,7 +59,7 @@ const forwardsArgumentsToDataLayer = (body, checker) => {
       return;
     }
 
-    if (ts.isFunctionDeclaration(node) || isFunctionExpression(node)) return;
+    if (isNestedFunction(node)) return;
     ts.forEachChild(node, visit);
   };
 
@@ -110,7 +119,7 @@ const hasAnalyticsInitialization = (content, measurementId) => {
       ts.isVariableDeclaration(node) &&
       ts.isIdentifier(node.name) &&
       node.initializer &&
-      isFunctionExpression(node.initializer) &&
+      ts.isFunctionExpression(node.initializer) &&
       forwardsArgumentsToDataLayer(node.initializer.body, checker)
     ) {
       const symbol = checker.getSymbolAtLocation(node.name);
@@ -121,7 +130,7 @@ const hasAnalyticsInitialization = (content, measurementId) => {
       ts.isBinaryExpression(node) &&
       node.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
       ts.isIdentifier(node.left) &&
-      isFunctionExpression(node.right) &&
+      ts.isFunctionExpression(node.right) &&
       forwardsArgumentsToDataLayer(node.right.body, checker)
     ) {
       const symbol = checker.getSymbolAtLocation(node.left);
