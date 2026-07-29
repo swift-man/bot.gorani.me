@@ -154,6 +154,37 @@ describe('verifyAnalyticsBuild', () => {
     );
   });
 
+  it('rejects a data layer attached to an unrelated object', () => {
+    const unrelatedDataLayer = `
+      <script>
+        const tracker = {};
+        tracker.dataLayer = tracker.dataLayer || [];
+        function gtag(){tracker.dataLayer.push(arguments);}
+        gtag('config', '${measurementId}');
+      </script>
+    `;
+
+    assert.throws(
+      () => verifyAnalyticsBuild({ html: html(loader, unrelatedDataLayer), measurementId }),
+      /Analytics initialization is missing/
+    );
+  });
+
+  it('rejects a forwarding function with an empty data layer push', () => {
+    const emptyDataLayerPush = `
+      <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push();}
+        gtag('config', '${measurementId}');
+      </script>
+    `;
+
+    assert.throws(
+      () => verifyAnalyticsBuild({ html: html(loader, emptyDataLayerPush), measurementId }),
+      /Analytics initialization is missing/
+    );
+  });
+
   it('rejects a Partytown Analytics script', () => {
     const partytown = `<script type="text/partytown" src="${loaderUrl}"></script>`;
 

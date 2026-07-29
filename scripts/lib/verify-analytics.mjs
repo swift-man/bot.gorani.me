@@ -14,10 +14,14 @@ const getStringValue = (node) => {
   if (node && (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node))) return node.text;
 };
 
+const isGlobalObject = (node) => ts.isIdentifier(node) && (node.text === 'window' || node.text === 'globalThis');
+
 const isDataLayerReference = (node) =>
   (ts.isIdentifier(node) && node.text === 'dataLayer') ||
-  (ts.isPropertyAccessExpression(node) && node.name.text === 'dataLayer') ||
-  (ts.isElementAccessExpression(node) && getStringValue(node.argumentExpression) === 'dataLayer');
+  (ts.isPropertyAccessExpression(node) && isGlobalObject(node.expression) && node.name.text === 'dataLayer') ||
+  (ts.isElementAccessExpression(node) &&
+    isGlobalObject(node.expression) &&
+    getStringValue(node.argumentExpression) === 'dataLayer');
 
 const isDataLayerInitialization = (node) =>
   (ts.isBinaryExpression(node) &&
@@ -39,6 +43,7 @@ const forwardsArgumentsToDataLayer = (body) => {
       ts.isPropertyAccessExpression(node.expression) &&
       node.expression.name.text === 'push' &&
       isDataLayerReference(node.expression.expression) &&
+      node.arguments.length > 0 &&
       ts.isIdentifier(node.arguments[0]) &&
       node.arguments[0].text === 'arguments'
     ) {
