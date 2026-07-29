@@ -80,6 +80,15 @@ describe('verifyAnalyticsBuild', () => {
     );
   });
 
+  it('ignores initialization text in an external script', () => {
+    const loaderWithIgnoredBody = `<script src="${loaderUrl}">${initializationBody}</script>`;
+
+    assert.throws(
+      () => verifyAnalyticsBuild({ html: html(loaderWithIgnoredBody), measurementId }),
+      /Analytics initialization is missing/
+    );
+  });
+
   it('ignores initialization text in a non-executable script', () => {
     const jsonInitialization = `<script type="application/json">${initializationBody}</script>`;
 
@@ -325,6 +334,35 @@ describe('verifyAnalyticsBuild', () => {
       () => verifyAnalyticsBuild({ html: html(loader, invalidatedDataLayer), measurementId }),
       /Analytics initialization is missing/
     );
+  });
+
+  it('rejects replacing the data layer after the config call', () => {
+    const replacedDataLayer = `
+      <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){window.dataLayer.push(arguments);}
+        gtag('config', '${measurementId}');
+        window.dataLayer = [];
+      </script>
+    `;
+
+    assert.throws(
+      () => verifyAnalyticsBuild({ html: html(loader, replacedDataLayer), measurementId }),
+      /Analytics initialization is missing/
+    );
+  });
+
+  it('accepts preserving the existing data layer after the config call', () => {
+    const preservedDataLayer = `
+      <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){window.dataLayer.push(arguments);}
+        gtag('config', '${measurementId}');
+        window.dataLayer = window.dataLayer || [];
+      </script>
+    `;
+
+    assert.doesNotThrow(() => verifyAnalyticsBuild({ html: html(loader, preservedDataLayer), measurementId }));
   });
 
   it('rejects a compound assignment that can invalidate the data layer', () => {

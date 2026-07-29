@@ -83,12 +83,14 @@ const isExplicitGlobalDataLayerReference = (node, checker) =>
 const isDataLayerReference = (node, checker) =>
   isExplicitGlobalDataLayerReference(node, checker) || isUnshadowedIdentifier(node, 'dataLayer', checker);
 
+const preservesExistingDataLayer = (node, checker) =>
+  ts.isBinaryExpression(node) &&
+  [ts.SyntaxKind.BarBarToken, ts.SyntaxKind.QuestionQuestionToken].includes(node.operatorToken.kind) &&
+  isExplicitGlobalDataLayerReference(node.left, checker) &&
+  ts.isArrayLiteralExpression(node.right);
+
 const isValidDataLayerValue = (node, checker) =>
-  ts.isArrayLiteralExpression(node) ||
-  (ts.isBinaryExpression(node) &&
-    [ts.SyntaxKind.BarBarToken, ts.SyntaxKind.QuestionQuestionToken].includes(node.operatorToken.kind) &&
-    isExplicitGlobalDataLayerReference(node.left, checker) &&
-    ts.isArrayLiteralExpression(node.right));
+  ts.isArrayLiteralExpression(node) || preservesExistingDataLayer(node, checker);
 
 const isAssignmentOperator = (kind) => kind >= ts.SyntaxKind.FirstAssignment && kind <= ts.SyntaxKind.LastAssignment;
 
@@ -329,7 +331,9 @@ const hasAnalyticsInitialization = (content, measurementId) => {
       if (isAssignmentOperator(expression.operatorToken.kind)) {
         if (isDataLayerAssignment(expression, checker)) {
           hasDataLayerInitialization = isDataLayerInitialization(expression, checker);
-          if (!hasDataLayerInitialization) hasConfigCall = false;
+          if (!hasDataLayerInitialization || !preservesExistingDataLayer(expression.right, checker)) {
+            hasConfigCall = false;
+          }
         }
 
         if (ts.isIdentifier(expression.left)) {
@@ -449,7 +453,10 @@ export const verifyAnalyticsBuild = ({ html, measurementId }) => {
   }
 
   const initializationScript = scripts.find(
-    (script) => isExecutable(script) && hasAnalyticsInitialization(script.content, measurementId)
+    (script) =>
+      isExecutable(script) &&
+      getAttribute(script.attributes, 'src') === undefined &&
+      hasAnalyticsInitialization(script.content, measurementId)
   );
 
   if (!initializationScript) {
