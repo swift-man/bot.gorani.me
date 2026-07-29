@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 
 import { verifyAnalyticsBuild } from './lib/verify-analytics.mjs';
 
-const measurementId = 'G-TEST1234';
+const measurementId = 'G-TEST123456';
 const loaderUrl = `https://www.googletagmanager.com/gtag/js?id=${measurementId}`;
 const loader = `<script async src="${loaderUrl}"></script>`;
 const initializationBody = `
@@ -20,11 +20,26 @@ describe('verifyAnalyticsBuild', () => {
     assert.doesNotThrow(() => verifyAnalyticsBuild({ html: html(loader, initialization), measurementId }));
   });
 
+  it('accepts the minified IIFE initialization emitted by the production build', () => {
+    const minifiedInitialization = `<script>!function(){function a(){window.dataLayer.push(arguments)}window.dataLayer=window.dataLayer||[],a("js",new Date),a("config","${measurementId}")}()</script>`;
+
+    assert.doesNotThrow(() => verifyAnalyticsBuild({ html: html(loader, minifiedInitialization), measurementId }));
+  });
+
   it('rejects an invalid measurement ID', () => {
     assert.throws(
       () => verifyAnalyticsBuild({ html: html(loader, initialization), measurementId: 'invalid' }),
       /valid Google Analytics measurement ID/
     );
+  });
+
+  it('rejects measurement IDs with an invalid suffix length', () => {
+    for (const invalidMeasurementId of ['G-SHORT', 'G-TOOLONG12345']) {
+      assert.throws(
+        () => verifyAnalyticsBuild({ html: html(loader, initialization), measurementId: invalidMeasurementId }),
+        /valid Google Analytics measurement ID/
+      );
+    }
   });
 
   it('rejects a missing loader', () => {
@@ -63,6 +78,28 @@ describe('verifyAnalyticsBuild', () => {
       () => verifyAnalyticsBuild({ html: html(loader, jsonInitialization), measurementId }),
       /Analytics initialization is missing/
     );
+  });
+
+  it('ignores initialization calls inside comments and strings', () => {
+    const commentInitialization = `
+      <script>
+        window.dataLayer = window.dataLayer || [];
+        // gtag('config', '${measurementId}');
+      </script>
+    `;
+    const stringInitialization = `
+      <script>
+        window.dataLayer = window.dataLayer || [];
+        const example = "gtag('config', '${measurementId}')";
+      </script>
+    `;
+
+    for (const fakeInitialization of [commentInitialization, stringInitialization]) {
+      assert.throws(
+        () => verifyAnalyticsBuild({ html: html(loader, fakeInitialization), measurementId }),
+        /Analytics initialization is missing/
+      );
+    }
   });
 
   it('rejects a Partytown Analytics script', () => {
