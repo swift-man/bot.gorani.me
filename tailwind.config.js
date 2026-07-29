@@ -12,7 +12,8 @@ export default {
         accent: 'var(--aw-color-accent)',
         default: 'var(--aw-color-text-default)',
         muted: 'var(--aw-color-text-muted)',
-        kakao: '#FEE500', 'kakao-hover': '#FDD835',
+        kakao: '#FEE500',
+        'kakao-hover': '#FDD835',
       },
       fontFamily: {
         sans: ['var(--aw-font-sans, ui-sans-serif)', ...defaultTheme.fontFamily.sans],

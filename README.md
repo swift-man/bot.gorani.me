@@ -147,15 +147,19 @@ Any static assets, like images, can be placed in the `public/` directory if they
 
 All commands are run from the root of the project, from a terminal:
 
-| Command             | Action                                             |
-| :------------------ | :------------------------------------------------- |
-| `npm install`       | Installs dependencies                              |
-| `npm run dev`       | Starts local dev server at `localhost:4321`        |
-| `npm run build`     | Build your production site to `./dist/`            |
-| `npm run preview`   | Preview your build locally, before deploying       |
-| `npm run check`     | Check your project for errors                      |
-| `npm run fix`       | Run Eslint and format codes with Prettier          |
-| `npm run astro ...` | Run CLI commands like `astro add`, `astro preview` |
+Node.js 22 or newer is required. Use a supported LTS release for local development and deployments.
+
+| Command                   | Action                                             |
+| :------------------------ | :------------------------------------------------- |
+| `npm install`             | Installs dependencies                              |
+| `npm run dev`             | Starts local dev server at `localhost:4321`        |
+| `npm run build`           | Build your production site to `./dist/`            |
+| `npm run preview`         | Preview your build locally, before deploying       |
+| `npm test`                | Run automated regression tests                     |
+| `npm run check`           | Check your project for errors                      |
+| `npm run check:analytics` | Verify Analytics in the production build           |
+| `npm run fix`             | Run Eslint and format codes with Prettier          |
+| `npm run astro ...`       | Run CLI commands like `astro add`, `astro preview` |
 
 <br>
 
