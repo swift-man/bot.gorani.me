@@ -1,8 +1,48 @@
 import ts from 'typescript';
 
 const getAttribute = (attributes, name) => {
-  const match = attributes.match(new RegExp(`(?:^|\\s)${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'=<>]+))`, 'i'));
-  return match?.[1] ?? match?.[2] ?? match?.[3];
+  const expectedName = name.toLowerCase();
+  let index = 0;
+
+  while (index < attributes.length) {
+    while (index < attributes.length && /\s/.test(attributes[index])) index += 1;
+    if (index >= attributes.length || attributes[index] === '>') break;
+    if (attributes[index] === '/') {
+      index += 1;
+      continue;
+    }
+
+    const nameStart = index;
+    while (index < attributes.length && !/[\s=/>]/.test(attributes[index])) index += 1;
+    if (index === nameStart) {
+      index += 1;
+      continue;
+    }
+
+    const attributeName = attributes.slice(nameStart, index).toLowerCase();
+    while (index < attributes.length && /\s/.test(attributes[index])) index += 1;
+
+    let value = '';
+    if (attributes[index] === '=') {
+      index += 1;
+      while (index < attributes.length && /\s/.test(attributes[index])) index += 1;
+
+      const quote = attributes[index];
+      if (quote === '"' || quote === "'") {
+        index += 1;
+        const valueStart = index;
+        while (index < attributes.length && attributes[index] !== quote) index += 1;
+        value = attributes.slice(valueStart, index);
+        if (attributes[index] === quote) index += 1;
+      } else {
+        const valueStart = index;
+        while (index < attributes.length && !/[\s>]/.test(attributes[index])) index += 1;
+        value = attributes.slice(valueStart, index);
+      }
+    }
+
+    if (attributeName === expectedName) return value;
+  }
 };
 
 const isExecutable = (script) => {
@@ -50,13 +90,17 @@ const isValidDataLayerValue = (node, checker) =>
     isExplicitGlobalDataLayerReference(node.left, checker) &&
     ts.isArrayLiteralExpression(node.right));
 
+const isAssignmentOperator = (kind) => kind >= ts.SyntaxKind.FirstAssignment && kind <= ts.SyntaxKind.LastAssignment;
+
 const isDataLayerAssignment = (node, checker) =>
   ts.isBinaryExpression(node) &&
-  node.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
+  isAssignmentOperator(node.operatorToken.kind) &&
   isExplicitGlobalDataLayerReference(node.left, checker);
 
 const isDataLayerInitialization = (node, checker) =>
-  isDataLayerAssignment(node, checker) && isValidDataLayerValue(node.right, checker);
+  isDataLayerAssignment(node, checker) &&
+  node.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
+  isValidDataLayerValue(node.right, checker);
 
 const isNestedFunction = (node) =>
   ts.isFunctionDeclaration(node) || ts.isFunctionExpression(node) || ts.isArrowFunction(node);
@@ -67,9 +111,9 @@ const isImplicitArguments = (node, checker) => {
 };
 
 const forwardsArgumentsToDataLayer = (functionNode, checker) => {
-  let forwardsArguments = false;
+  const expressionForwardsArguments = (node) => {
+    if (!node || isNestedFunction(node)) return false;
 
-  const visit = (node) => {
     if (
       ts.isCallExpression(node) &&
       ts.isPropertyAccessExpression(node.expression) &&
@@ -78,16 +122,97 @@ const forwardsArgumentsToDataLayer = (functionNode, checker) => {
       node.arguments.length > 0 &&
       isImplicitArguments(node.arguments[0], checker)
     ) {
-      forwardsArguments = true;
-      return;
+      return true;
     }
 
-    if (isNestedFunction(node)) return;
-    ts.forEachChild(node, visit);
+    if (ts.isParenthesizedExpression(node)) return expressionForwardsArguments(node.expression);
+
+    if (ts.isCallExpression(node) || ts.isNewExpression(node)) {
+      return (
+        expressionForwardsArguments(node.expression) || (node.arguments?.some(expressionForwardsArguments) ?? false)
+      );
+    }
+
+    if (ts.isBinaryExpression(node)) {
+      if (
+        [
+          ts.SyntaxKind.AmpersandAmpersandToken,
+          ts.SyntaxKind.BarBarToken,
+          ts.SyntaxKind.QuestionQuestionToken,
+        ].includes(node.operatorToken.kind)
+      ) {
+        return expressionForwardsArguments(node.left);
+      }
+      return expressionForwardsArguments(node.left) || expressionForwardsArguments(node.right);
+    }
+
+    if (ts.isConditionalExpression(node)) return expressionForwardsArguments(node.condition);
+
+    if (
+      ts.isPrefixUnaryExpression(node) ||
+      ts.isPostfixUnaryExpression(node) ||
+      ts.isAwaitExpression(node) ||
+      ts.isYieldExpression(node)
+    ) {
+      return expressionForwardsArguments(node.operand ?? node.expression);
+    }
+
+    if (ts.isPropertyAccessExpression(node)) return expressionForwardsArguments(node.expression);
+    if (ts.isElementAccessExpression(node)) {
+      return expressionForwardsArguments(node.expression) || expressionForwardsArguments(node.argumentExpression);
+    }
+
+    if (ts.isArrayLiteralExpression(node)) return node.elements.some(expressionForwardsArguments);
+    if (ts.isObjectLiteralExpression(node)) {
+      return node.properties.some((property) => {
+        if (ts.isPropertyAssignment(property)) return expressionForwardsArguments(property.initializer);
+        if (ts.isSpreadAssignment(property)) return expressionForwardsArguments(property.expression);
+        return false;
+      });
+    }
+
+    return false;
   };
 
-  visit(functionNode.body);
-  return forwardsArguments;
+  const visitStatement = (statement) => {
+    if (ts.isFunctionDeclaration(statement)) return { forwards: false, continues: true };
+
+    if (ts.isExpressionStatement(statement)) {
+      return { forwards: expressionForwardsArguments(statement.expression), continues: true };
+    }
+
+    if (ts.isVariableStatement(statement)) {
+      return {
+        forwards: statement.declarationList.declarations.some((declaration) =>
+          expressionForwardsArguments(declaration.initializer)
+        ),
+        continues: true,
+      };
+    }
+
+    if (ts.isBlock(statement)) return visitStatements(statement.statements);
+    if (ts.isLabeledStatement(statement)) return visitStatement(statement.statement);
+
+    if (ts.isReturnStatement(statement) || ts.isThrowStatement(statement)) {
+      return {
+        forwards: expressionForwardsArguments(statement.expression),
+        continues: false,
+      };
+    }
+
+    return { forwards: false, continues: true };
+  };
+
+  const visitStatements = (statements) => {
+    for (const statement of statements) {
+      const result = visitStatement(statement);
+      if (result.forwards || !result.continues) return result;
+    }
+    return { forwards: false, continues: true };
+  };
+
+  if (!ts.isBlock(functionNode.body)) return expressionForwardsArguments(functionNode.body);
+  return visitStatements(functionNode.body.statements).forwards;
 };
 
 const createJavaScriptProgram = (content) => {
@@ -201,14 +326,19 @@ const hasAnalyticsInitialization = (content, measurementId) => {
         return;
       }
 
-      if (expression.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
+      if (isAssignmentOperator(expression.operatorToken.kind)) {
         if (isDataLayerAssignment(expression, checker)) {
           hasDataLayerInitialization = isDataLayerInitialization(expression, checker);
           if (!hasDataLayerInitialization) hasConfigCall = false;
         }
 
         if (ts.isIdentifier(expression.left)) {
-          updateFunction(expression.left, ts.isFunctionExpression(expression.right) ? expression.right : undefined);
+          updateFunction(
+            expression.left,
+            expression.operatorToken.kind === ts.SyntaxKind.EqualsToken && ts.isFunctionExpression(expression.right)
+              ? expression.right
+              : undefined
+          );
 
           if (!ts.isFunctionExpression(expression.right) && !ts.isArrowFunction(expression.right)) {
             visitExecutedExpression(expression.right);

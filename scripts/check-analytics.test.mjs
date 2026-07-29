@@ -58,6 +58,15 @@ describe('verifyAnalyticsBuild', () => {
     );
   });
 
+  it('does not treat src text inside another attribute as a loader source', () => {
+    const disguisedLoader = `<script data-note='src="${loaderUrl}"'></script>`;
+
+    assert.throws(
+      () => verifyAnalyticsBuild({ html: html(disguisedLoader, initialization), measurementId }),
+      /Analytics loader is missing/
+    );
+  });
+
   it('does not treat data-type as the script type', () => {
     const dataTypeInitialization = `<script data-type="application/json">${initializationBody}</script>`;
 
@@ -318,6 +327,22 @@ describe('verifyAnalyticsBuild', () => {
     );
   });
 
+  it('rejects a compound assignment that can invalidate the data layer', () => {
+    const invalidatedDataLayer = `
+      <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){window.dataLayer.push(arguments);}
+        window.dataLayer &&= null;
+        gtag('config', '${measurementId}');
+      </script>
+    `;
+
+    assert.throws(
+      () => verifyAnalyticsBuild({ html: html(loader, invalidatedDataLayer), measurementId }),
+      /Analytics initialization is missing/
+    );
+  });
+
   it('rejects a forwarding function that is reassigned before config', () => {
     const reassignedFunction = `
       <script>
@@ -349,6 +374,26 @@ describe('verifyAnalyticsBuild', () => {
 
       assert.throws(
         () => verifyAnalyticsBuild({ html: html(loader, unreachableInitialization), measurementId }),
+        /Analytics initialization is missing/
+      );
+    }
+  });
+
+  it('rejects a forwarding call after an abrupt function exit', () => {
+    for (const exitStatement of ['return;', 'throw new Error();']) {
+      const unreachableForwardingCall = `
+        <script>
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){
+            ${exitStatement}
+            window.dataLayer.push(arguments);
+          }
+          gtag('config', '${measurementId}');
+        </script>
+      `;
+
+      assert.throws(
+        () => verifyAnalyticsBuild({ html: html(loader, unreachableForwardingCall), measurementId }),
         /Analytics initialization is missing/
       );
     }
