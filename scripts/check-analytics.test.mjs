@@ -102,6 +102,58 @@ describe('verifyAnalyticsBuild', () => {
     }
   });
 
+  it('rejects syntactically invalid initialization code', () => {
+    const invalidInitialization = `<script>${initializationBody}}</script>`;
+
+    assert.throws(
+      () => verifyAnalyticsBuild({ html: html(loader, invalidInitialization), measurementId }),
+      /Analytics initialization is missing/
+    );
+  });
+
+  it('rejects an unrelated function call with Analytics arguments', () => {
+    const unrelatedCall = `
+      <script>
+        window.dataLayer = window.dataLayer || [];
+        console.log('config', '${measurementId}');
+      </script>
+    `;
+
+    assert.throws(
+      () => verifyAnalyticsBuild({ html: html(loader, unrelatedCall), measurementId }),
+      /Analytics initialization is missing/
+    );
+  });
+
+  it('rejects a forwarding function when the data layer is not initialized', () => {
+    const missingDataLayerInitialization = `
+      <script>
+        function gtag(){dataLayer.push(arguments);}
+        gtag('config', '${measurementId}');
+      </script>
+    `;
+
+    assert.throws(
+      () => verifyAnalyticsBuild({ html: html(loader, missingDataLayerInitialization), measurementId }),
+      /Analytics initialization is missing/
+    );
+  });
+
+  it('rejects a config function that does not forward to the data layer', () => {
+    const unrelatedConfigFunction = `
+      <script>
+        window.dataLayer = window.dataLayer || [];
+        function fakeConfig(){console.log(arguments);}
+        fakeConfig('config', '${measurementId}');
+      </script>
+    `;
+
+    assert.throws(
+      () => verifyAnalyticsBuild({ html: html(loader, unrelatedConfigFunction), measurementId }),
+      /Analytics initialization is missing/
+    );
+  });
+
   it('rejects a Partytown Analytics script', () => {
     const partytown = `<script type="text/partytown" src="${loaderUrl}"></script>`;
 

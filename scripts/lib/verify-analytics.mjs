@@ -14,29 +14,99 @@ const getStringValue = (node) => {
   if (node && (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node))) return node.text;
 };
 
-const hasAnalyticsInitialization = (content, measurementId) => {
-  const sourceFile = ts.createSourceFile('analytics.js', content, ts.ScriptTarget.Latest, false, ts.ScriptKind.JS);
-  let hasDataLayer = false;
-  let hasConfigCall = false;
+const isDataLayerReference = (node) =>
+  (ts.isIdentifier(node) && node.text === 'dataLayer') ||
+  (ts.isPropertyAccessExpression(node) && node.name.text === 'dataLayer') ||
+  (ts.isElementAccessExpression(node) && getStringValue(node.argumentExpression) === 'dataLayer');
+
+const isDataLayerInitialization = (node) =>
+  (ts.isBinaryExpression(node) &&
+    node.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
+    isDataLayerReference(node.left)) ||
+  (ts.isVariableDeclaration(node) &&
+    ts.isIdentifier(node.name) &&
+    node.name.text === 'dataLayer' &&
+    Boolean(node.initializer));
+
+const isFunctionExpression = (node) => ts.isFunctionExpression(node) || ts.isArrowFunction(node);
+
+const forwardsArgumentsToDataLayer = (body) => {
+  let forwardsArguments = false;
 
   const visit = (node) => {
-    if (ts.isIdentifier(node) && node.text === 'dataLayer') {
-      hasDataLayer = true;
+    if (
+      ts.isCallExpression(node) &&
+      ts.isPropertyAccessExpression(node.expression) &&
+      node.expression.name.text === 'push' &&
+      isDataLayerReference(node.expression.expression) &&
+      ts.isIdentifier(node.arguments[0]) &&
+      node.arguments[0].text === 'arguments'
+    ) {
+      forwardsArguments = true;
+      return;
+    }
+
+    if (ts.isFunctionDeclaration(node) || isFunctionExpression(node)) return;
+    ts.forEachChild(node, visit);
+  };
+
+  visit(body);
+  return forwardsArguments;
+};
+
+const hasAnalyticsInitialization = (content, measurementId) => {
+  const sourceFile = ts.createSourceFile('analytics.js', content, ts.ScriptTarget.Latest, false, ts.ScriptKind.JS);
+  if (sourceFile.parseDiagnostics.length > 0) return false;
+
+  let hasDataLayerInitialization = false;
+  const forwardingFunctions = new Set();
+  const configCallTargets = new Set();
+
+  const visit = (node) => {
+    if (isDataLayerInitialization(node)) {
+      hasDataLayerInitialization = true;
+    }
+
+    if (ts.isFunctionDeclaration(node) && node.name && node.body && forwardsArgumentsToDataLayer(node.body)) {
+      forwardingFunctions.add(node.name.text);
+    }
+
+    if (
+      ts.isVariableDeclaration(node) &&
+      ts.isIdentifier(node.name) &&
+      node.initializer &&
+      isFunctionExpression(node.initializer) &&
+      forwardsArgumentsToDataLayer(node.initializer.body)
+    ) {
+      forwardingFunctions.add(node.name.text);
+    }
+
+    if (
+      ts.isBinaryExpression(node) &&
+      node.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
+      ts.isIdentifier(node.left) &&
+      isFunctionExpression(node.right) &&
+      forwardsArgumentsToDataLayer(node.right.body)
+    ) {
+      forwardingFunctions.add(node.left.text);
     }
 
     if (
       ts.isCallExpression(node) &&
+      ts.isIdentifier(node.expression) &&
       getStringValue(node.arguments[0]) === 'config' &&
       getStringValue(node.arguments[1]) === measurementId
     ) {
-      hasConfigCall = true;
+      configCallTargets.add(node.expression.text);
     }
 
     ts.forEachChild(node, visit);
   };
 
   visit(sourceFile);
-  return hasDataLayer && hasConfigCall;
+  return (
+    hasDataLayerInitialization && [...forwardingFunctions].some((functionName) => configCallTargets.has(functionName))
+  );
 };
 
 export const validateMeasurementId = (measurementId) => {
