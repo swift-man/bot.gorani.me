@@ -50,11 +50,13 @@ const isValidDataLayerValue = (node, checker) =>
     isExplicitGlobalDataLayerReference(node.left, checker) &&
     ts.isArrayLiteralExpression(node.right));
 
-const isDataLayerInitialization = (node, checker) =>
+const isDataLayerAssignment = (node, checker) =>
   ts.isBinaryExpression(node) &&
   node.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
-  isExplicitGlobalDataLayerReference(node.left, checker) &&
-  isValidDataLayerValue(node.right, checker);
+  isExplicitGlobalDataLayerReference(node.left, checker);
+
+const isDataLayerInitialization = (node, checker) =>
+  isDataLayerAssignment(node, checker) && isValidDataLayerValue(node.right, checker);
 
 const isNestedFunction = (node) =>
   ts.isFunctionDeclaration(node) || ts.isFunctionExpression(node) || ts.isArrowFunction(node);
@@ -126,10 +128,16 @@ const hasAnalyticsInitialization = (content, measurementId) => {
   let hasConfigCall = false;
   const forwardingFunctions = new Set();
 
-  const registerFunction = (name, functionNode) => {
-    if (!name || !forwardsArgumentsToDataLayer(functionNode, checker)) return;
+  const updateFunction = (name, functionNode) => {
+    if (!name) return;
     const symbol = checker.getSymbolAtLocation(name);
-    if (symbol) forwardingFunctions.add(symbol);
+    if (!symbol) return;
+
+    if (functionNode && forwardsArgumentsToDataLayer(functionNode, checker)) {
+      forwardingFunctions.add(symbol);
+    } else {
+      forwardingFunctions.delete(symbol);
+    }
   };
 
   const unwrapExpression = (node) => {
@@ -141,20 +149,23 @@ const hasAnalyticsInitialization = (content, measurementId) => {
   const visitExecutedStatements = (statements) => {
     for (const statement of statements) {
       if (ts.isFunctionDeclaration(statement)) {
-        registerFunction(statement.name, statement);
+        updateFunction(statement.name, statement);
       }
     }
 
     for (const statement of statements) {
-      visitExecutedStatement(statement);
+      if (!visitExecutedStatement(statement)) return false;
     }
+
+    return true;
   };
 
   const visitExecutedFunction = (functionNode) => {
     if (ts.isBlock(functionNode.body)) {
-      visitExecutedStatements(functionNode.body.statements);
+      return visitExecutedStatements(functionNode.body.statements);
     } else {
       visitExecutedExpression(functionNode.body);
+      return true;
     }
   };
 
@@ -191,12 +202,17 @@ const hasAnalyticsInitialization = (content, measurementId) => {
       }
 
       if (expression.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
-        if (isDataLayerInitialization(expression, checker)) {
-          hasDataLayerInitialization = true;
+        if (isDataLayerAssignment(expression, checker)) {
+          hasDataLayerInitialization = isDataLayerInitialization(expression, checker);
+          if (!hasDataLayerInitialization) hasConfigCall = false;
         }
 
-        if (ts.isIdentifier(expression.left) && ts.isFunctionExpression(expression.right)) {
-          registerFunction(expression.left, expression.right);
+        if (ts.isIdentifier(expression.left)) {
+          updateFunction(expression.left, ts.isFunctionExpression(expression.right) ? expression.right : undefined);
+
+          if (!ts.isFunctionExpression(expression.right) && !ts.isArrowFunction(expression.right)) {
+            visitExecutedExpression(expression.right);
+          }
           return;
         }
 
@@ -218,39 +234,50 @@ const hasAnalyticsInitialization = (content, measurementId) => {
   };
 
   const visitExecutedStatement = (statement) => {
-    if (ts.isFunctionDeclaration(statement)) return;
+    if (ts.isFunctionDeclaration(statement)) return true;
 
     if (ts.isExpressionStatement(statement)) {
       visitExecutedExpression(statement.expression);
-      return;
+      return true;
     }
 
     if (ts.isVariableStatement(statement)) {
       for (const declaration of statement.declarationList.declarations) {
         if (!declaration.initializer) continue;
 
-        if (ts.isIdentifier(declaration.name) && ts.isFunctionExpression(declaration.initializer)) {
-          registerFunction(declaration.name, declaration.initializer);
-        } else if (!ts.isArrowFunction(declaration.initializer)) {
+        if (ts.isIdentifier(declaration.name)) {
+          updateFunction(
+            declaration.name,
+            ts.isFunctionExpression(declaration.initializer) ? declaration.initializer : undefined
+          );
+        }
+
+        if (!ts.isFunctionExpression(declaration.initializer) && !ts.isArrowFunction(declaration.initializer)) {
           visitExecutedExpression(declaration.initializer);
         }
       }
-      return;
+      return true;
     }
 
     if (ts.isBlock(statement)) {
-      visitExecutedStatements(statement.statements);
-      return;
+      return visitExecutedStatements(statement.statements);
     }
 
     if (ts.isLabeledStatement(statement)) {
-      visitExecutedStatement(statement.statement);
-      return;
+      return visitExecutedStatement(statement.statement);
     }
 
-    if (ts.isReturnStatement(statement) && statement.expression) {
-      visitExecutedExpression(statement.expression);
+    if (ts.isReturnStatement(statement)) {
+      if (statement.expression) visitExecutedExpression(statement.expression);
+      return false;
     }
+
+    if (ts.isThrowStatement(statement)) {
+      visitExecutedExpression(statement.expression);
+      return false;
+    }
+
+    return true;
   };
 
   visitExecutedStatements(sourceFile.statements);

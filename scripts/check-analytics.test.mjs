@@ -302,6 +302,58 @@ describe('verifyAnalyticsBuild', () => {
     );
   });
 
+  it('rejects a data layer invalidated after valid initialization', () => {
+    const invalidatedDataLayer = `
+      <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){window.dataLayer.push(arguments);}
+        window.dataLayer = null;
+        gtag('config', '${measurementId}');
+      </script>
+    `;
+
+    assert.throws(
+      () => verifyAnalyticsBuild({ html: html(loader, invalidatedDataLayer), measurementId }),
+      /Analytics initialization is missing/
+    );
+  });
+
+  it('rejects a forwarding function that is reassigned before config', () => {
+    const reassignedFunction = `
+      <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){window.dataLayer.push(arguments);}
+        gtag = console.log;
+        gtag('config', '${measurementId}');
+      </script>
+    `;
+
+    assert.throws(
+      () => verifyAnalyticsBuild({ html: html(loader, reassignedFunction), measurementId }),
+      /Analytics initialization is missing/
+    );
+  });
+
+  it('rejects initialization after an abrupt IIFE exit', () => {
+    for (const exitStatement of ['return;', 'throw new Error();']) {
+      const unreachableInitialization = `
+        <script>
+          (function initialize(){
+            ${exitStatement}
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){window.dataLayer.push(arguments);}
+            gtag('config', '${measurementId}');
+          })();
+        </script>
+      `;
+
+      assert.throws(
+        () => verifyAnalyticsBuild({ html: html(loader, unreachableInitialization), measurementId }),
+        /Analytics initialization is missing/
+      );
+    }
+  });
+
   it('rejects a forwarding function with an empty data layer push', () => {
     const emptyDataLayerPush = `
       <script>
