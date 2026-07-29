@@ -16,25 +16,24 @@ const getStringValue = (node) => {
 
 const isGlobalObject = (node) => ts.isIdentifier(node) && (node.text === 'window' || node.text === 'globalThis');
 
-const isDataLayerReference = (node) =>
-  (ts.isIdentifier(node) && node.text === 'dataLayer') ||
+const isExplicitGlobalDataLayerReference = (node) =>
   (ts.isPropertyAccessExpression(node) && isGlobalObject(node.expression) && node.name.text === 'dataLayer') ||
   (ts.isElementAccessExpression(node) &&
     isGlobalObject(node.expression) &&
     getStringValue(node.argumentExpression) === 'dataLayer');
 
+const isDataLayerReference = (node, checker) =>
+  isExplicitGlobalDataLayerReference(node) ||
+  (ts.isIdentifier(node) && node.text === 'dataLayer' && !checker.getSymbolAtLocation(node));
+
 const isDataLayerInitialization = (node) =>
-  (ts.isBinaryExpression(node) &&
-    node.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
-    isDataLayerReference(node.left)) ||
-  (ts.isVariableDeclaration(node) &&
-    ts.isIdentifier(node.name) &&
-    node.name.text === 'dataLayer' &&
-    Boolean(node.initializer));
+  ts.isBinaryExpression(node) &&
+  node.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
+  isExplicitGlobalDataLayerReference(node.left);
 
 const isFunctionExpression = (node) => ts.isFunctionExpression(node) || ts.isArrowFunction(node);
 
-const forwardsArgumentsToDataLayer = (body) => {
+const forwardsArgumentsToDataLayer = (body, checker) => {
   let forwardsArguments = false;
 
   const visit = (node) => {
@@ -42,7 +41,7 @@ const forwardsArgumentsToDataLayer = (body) => {
       ts.isCallExpression(node) &&
       ts.isPropertyAccessExpression(node.expression) &&
       node.expression.name.text === 'push' &&
-      isDataLayerReference(node.expression.expression) &&
+      isDataLayerReference(node.expression.expression, checker) &&
       node.arguments.length > 0 &&
       ts.isIdentifier(node.arguments[0]) &&
       node.arguments[0].text === 'arguments'
@@ -59,9 +58,39 @@ const forwardsArgumentsToDataLayer = (body) => {
   return forwardsArguments;
 };
 
+const createJavaScriptProgram = (content) => {
+  const fileName = 'analytics.js';
+  const options = {
+    allowJs: true,
+    checkJs: false,
+    noLib: true,
+    target: ts.ScriptTarget.Latest,
+  };
+  const sourceFile = ts.createSourceFile(fileName, content, options.target, true, ts.ScriptKind.JS);
+  const host = {
+    fileExists: (candidate) => candidate === fileName,
+    getCanonicalFileName: (candidate) => candidate,
+    getCurrentDirectory: () => '',
+    getDefaultLibFileName: () => '',
+    getDirectories: () => [],
+    getNewLine: () => '\n',
+    getSourceFile: (candidate) => (candidate === fileName ? sourceFile : undefined),
+    readFile: (candidate) => (candidate === fileName ? content : undefined),
+    useCaseSensitiveFileNames: () => true,
+    writeFile: () => {},
+  };
+  const program = ts.createProgram([fileName], options, host);
+
+  return {
+    checker: program.getTypeChecker(),
+    hasSyntaxErrors: program.getSyntacticDiagnostics(sourceFile).length > 0,
+    sourceFile,
+  };
+};
+
 const hasAnalyticsInitialization = (content, measurementId) => {
-  const sourceFile = ts.createSourceFile('analytics.js', content, ts.ScriptTarget.Latest, false, ts.ScriptKind.JS);
-  if (sourceFile.parseDiagnostics.length > 0) return false;
+  const { checker, hasSyntaxErrors, sourceFile } = createJavaScriptProgram(content);
+  if (hasSyntaxErrors) return false;
 
   let hasDataLayerInitialization = false;
   const forwardingFunctions = new Set();
@@ -72,8 +101,9 @@ const hasAnalyticsInitialization = (content, measurementId) => {
       hasDataLayerInitialization = true;
     }
 
-    if (ts.isFunctionDeclaration(node) && node.name && node.body && forwardsArgumentsToDataLayer(node.body)) {
-      forwardingFunctions.add(node.name.text);
+    if (ts.isFunctionDeclaration(node) && node.name && node.body && forwardsArgumentsToDataLayer(node.body, checker)) {
+      const symbol = checker.getSymbolAtLocation(node.name);
+      if (symbol) forwardingFunctions.add(symbol);
     }
 
     if (
@@ -81,9 +111,10 @@ const hasAnalyticsInitialization = (content, measurementId) => {
       ts.isIdentifier(node.name) &&
       node.initializer &&
       isFunctionExpression(node.initializer) &&
-      forwardsArgumentsToDataLayer(node.initializer.body)
+      forwardsArgumentsToDataLayer(node.initializer.body, checker)
     ) {
-      forwardingFunctions.add(node.name.text);
+      const symbol = checker.getSymbolAtLocation(node.name);
+      if (symbol) forwardingFunctions.add(symbol);
     }
 
     if (
@@ -91,9 +122,10 @@ const hasAnalyticsInitialization = (content, measurementId) => {
       node.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
       ts.isIdentifier(node.left) &&
       isFunctionExpression(node.right) &&
-      forwardsArgumentsToDataLayer(node.right.body)
+      forwardsArgumentsToDataLayer(node.right.body, checker)
     ) {
-      forwardingFunctions.add(node.left.text);
+      const symbol = checker.getSymbolAtLocation(node.left);
+      if (symbol) forwardingFunctions.add(symbol);
     }
 
     if (
@@ -102,16 +134,15 @@ const hasAnalyticsInitialization = (content, measurementId) => {
       getStringValue(node.arguments[0]) === 'config' &&
       getStringValue(node.arguments[1]) === measurementId
     ) {
-      configCallTargets.add(node.expression.text);
+      const symbol = checker.getSymbolAtLocation(node.expression);
+      if (symbol) configCallTargets.add(symbol);
     }
 
     ts.forEachChild(node, visit);
   };
 
   visit(sourceFile);
-  return (
-    hasDataLayerInitialization && [...forwardingFunctions].some((functionName) => configCallTargets.has(functionName))
-  );
+  return hasDataLayerInitialization && [...forwardingFunctions].some((symbol) => configCallTargets.has(symbol));
 };
 
 export const validateMeasurementId = (measurementId) => {

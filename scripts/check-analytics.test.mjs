@@ -170,6 +170,55 @@ describe('verifyAnalyticsBuild', () => {
     );
   });
 
+  it('rejects a locally declared data layer', () => {
+    const localDataLayer = `
+      <script>
+        const dataLayer = [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('config', '${measurementId}');
+      </script>
+    `;
+
+    assert.throws(
+      () => verifyAnalyticsBuild({ html: html(loader, localDataLayer), measurementId }),
+      /Analytics initialization is missing/
+    );
+  });
+
+  it('rejects a local data layer that shadows the global queue', () => {
+    const shadowedDataLayer = `
+      <script>
+        window.dataLayer = window.dataLayer || [];
+        const dataLayer = [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('config', '${measurementId}');
+      </script>
+    `;
+
+    assert.throws(
+      () => verifyAnalyticsBuild({ html: html(loader, shadowedDataLayer), measurementId }),
+      /Analytics initialization is missing/
+    );
+  });
+
+  it('rejects a config call whose function binding is shadowed', () => {
+    const shadowedConfigFunction = `
+      <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){window.dataLayer.push(arguments);}
+        {
+          const gtag = console.log;
+          gtag('config', '${measurementId}');
+        }
+      </script>
+    `;
+
+    assert.throws(
+      () => verifyAnalyticsBuild({ html: html(loader, shadowedConfigFunction), measurementId }),
+      /Analytics initialization is missing/
+    );
+  });
+
   it('rejects a forwarding function with an empty data layer push', () => {
     const emptyDataLayerPush = `
       <script>
