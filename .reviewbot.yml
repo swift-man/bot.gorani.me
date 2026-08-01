@@ -1,0 +1,92 @@
+version: 1
+
+review:
+  include:
+    # Astro application and supporting code
+    - '**/*.astro'
+    - '**/*.ts'
+    - '**/*.tsx'
+    - '**/*.js'
+    - '**/*.jsx'
+    - '**/*.mjs'
+    - '**/*.cjs'
+    - '**/*.css'
+
+    # Site content and configuration
+    - '**/*.md'
+    - '**/*.mdx'
+    - '**/*.json'
+    - '**/*.yaml'
+    - '**/*.yml'
+    - '**/*.toml'
+    - '**/*.xml'
+    - '**/*.html'
+    - '**/*.txt'
+    - '**/*.conf'
+    - 'Dockerfile'
+    - 'LICENSE'
+    - '**/CNAME'
+    - 'public/_headers'
+    - '.dockerignore'
+    - '.editorconfig'
+    - '.gitignore'
+    - '.npmrc'
+    - '.prettierignore'
+    - '.stackblitzrc'
+    - '.reviewbot.yml'
+
+  exclude:
+    # Dependencies, generated output, and caches
+    - 'node_modules/**'
+    - 'dist/**'
+    - '.astro/**'
+    - '.output/**'
+    - 'coverage/**'
+    - '**/*.map'
+    - '**/*.log'
+
+    # Local editor and operating-system metadata
+    - '.vscode/**'
+    - 'vscode.tailwind.json'
+    - '**/.DS_Store'
+
+    # Design sources and media assets
+    - 'Resources/**'
+    - '**/*.png'
+    - '**/*.jpg'
+    - '**/*.jpeg'
+    - '**/*.gif'
+    - '**/*.webp'
+    - '**/*.svg'
+    - '**/*.ico'
+    - '**/*.pdf'
+    - '**/*.mp3'
+    - '**/*.wav'
+    - '**/*.m4a'
+    - '**/*.mp4'
+    - '**/*.mov'
+    - '**/*.woff'
+    - '**/*.woff2'
+
+    # Machine-managed or exact-token files
+    - 'package-lock.json'
+    - 'yarn.lock'
+    - 'pnpm-lock.yaml'
+    - 'public/naver*.html'
+    - '.nojekyll'
+
+  always_review:
+    - '.reviewbot.yml'
+    - 'AGENTS.md'
+    - 'README.md'
+    - 'package.json'
+    - 'astro.config.ts'
+    - 'src/config.yaml'
+    - 'src/content/config.ts'
+    - '.github/workflows/**'
+    - 'scripts/**'
+    # This integration is imported directly by astro.config.ts.
+    - 'vendor/integration/**'
+    - 'public/_headers'
+    - 'public/robots.txt'
+    - 'public/sitemap.xml'
