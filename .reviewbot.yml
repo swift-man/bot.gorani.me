@@ -5,13 +5,16 @@ review:
     # Astro application and supporting code
     - '**/*.astro'
     - '**/*.ts'
+    - '**/*.tsx'
     - '**/*.js'
+    - '**/*.jsx'
     - '**/*.mjs'
     - '**/*.cjs'
     - '**/*.css'
 
     # Site content and configuration
     - '**/*.md'
+    - '**/*.mdx'
     - '**/*.json'
     - '**/*.yaml'
     - '**/*.yml'
