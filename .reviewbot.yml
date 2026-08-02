@@ -36,6 +36,9 @@ review:
     - '.reviewbot.yml'
 
   exclude:
+    # Upstream open-source source kept unchanged
+    - 'vendor/**'
+
     # Dependencies, generated output, and caches
     - 'node_modules/**'
     - 'dist/**'
@@ -85,8 +88,6 @@ review:
     - 'src/content/config.ts'
     - '.github/workflows/**'
     - 'scripts/**'
-    # This integration is imported directly by astro.config.ts.
-    - 'vendor/integration/**'
     - 'public/_headers'
     - 'public/robots.txt'
     - 'public/sitemap.xml'
