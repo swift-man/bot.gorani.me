@@ -1,5 +1,8 @@
 ---
 import Layout from '~/layouts/PageLayout.astro';
+import Image from '~/components/common/Image.astro';
+import { findPostsBySlugs } from '~/utils/blog';
+import { getPermalink } from '~/utils/permalinks';
 
 import Hero from '~/components/widgets/Hero.astro';
 import Note from '~/components/widgets/Note.astro';
@@ -10,6 +13,8 @@ import Content from '~/components/widgets/Content.astro';
 import BlogLatestPosts from '~/components/widgets/BlogLatestPosts.astro';
 import Stats from '~/components/widgets/Stats.astro';
 import CallToAction from '~/components/widgets/CallToAction.astro';
+
+const [patchNotes] = await findPostsBySlugs(['whats-new']);
 
 const metadata = {
   title: '토깽이 카카오톡 봇 — 랭킹·알림·데이터 조회를 한 번에 + 귀엽게, 똑똑하게 도와줄게요',
@@ -166,8 +171,31 @@ const metadata = {
         description: '이미지, 공지, 게임 요소를 활용해 참여도를 높이고, 오픈채팅방 내 특정 광고와도 협업이 가능합니다.',
       },
     ]}
-    image={{ src: '~/assets/images/bot.webp', alt: 'bot' }}
   >
+    <Fragment slot="image">
+      <a
+        href="https://talk.gorani.me"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="relative block overflow-hidden rounded-lg shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4"
+      >
+        <Image
+          src="~/assets/images/bot.webp"
+          alt="토깽이 봇"
+          class="mx-auto w-full"
+          width={427}
+          height={425}
+          widths={[400, 768]}
+          sizes="(max-width: 768px) 100vw, 432px"
+          layout="responsive"
+        />
+        <span
+          class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-6 pt-16 text-2xl font-bold tracking-tight text-white font-heading"
+        >
+          관리자 페이지 이동하기 <span aria-hidden="true">&gt;</span>
+        </span>
+      </a>
+    </Fragment>
     <Fragment slot="content">각 채팅방에 맞게 설정하기</Fragment>
 
     <Fragment slot="bg">
@@ -199,8 +227,39 @@ const metadata = {
         description: `사용자 피드백을 반영하며<br />나은 기능으로 계속 발전합니다.`,
       },
     ]}
-    image={{ src: '~/assets/images/holdem.png', alt: 'holdem' }}
   >
+    <Fragment slot="image">
+      {
+        patchNotes && (
+          <a
+            href={getPermalink(patchNotes.permalink, 'post')}
+            class="relative block overflow-hidden rounded-lg shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4"
+          >
+            {patchNotes.image && (
+              <Image
+                src={patchNotes.image}
+                alt="토깽이 패치노트 메인 이미지"
+                class="mx-auto w-full"
+                width={500}
+                height={500}
+                widths={[400, 768]}
+                sizes="(max-width: 768px) 100vw, 432px"
+                layout="responsive"
+              />
+            )}
+            <h2
+              class:list={[
+                'p-6 text-3xl font-bold tracking-tight font-heading',
+                patchNotes.image &&
+                  'absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent pt-16 text-white',
+              ]}
+            >
+              새로운 소식 <span aria-hidden="true">&gt;</span>
+            </h2>
+          </a>
+        )
+      }
+    </Fragment>
     <Fragment slot="content">채팅방의 성장과 활성화를 위해 설계된 토깽이</Fragment>
 
     <Fragment slot="bg">
